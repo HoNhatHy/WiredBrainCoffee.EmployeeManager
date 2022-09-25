@@ -1,0 +1,119 @@
+﻿@page "/employees/add"
+@using WiredBrainCoffee.EmployeeManager.Helper
+@inject IDbContextFactory<EmployeeManagerDbContext> EmployeeDbContextFactory
+
+<PageTitle>Add employee</PageTitle>
+
+<h1>AddEmployee</h1>
+
+@if (Employee is not null)
+{
+    <EditForm Model="@Employee" OnValidSubmit="@HandleValidSubmit" OnInvalidSubmit="HandleInvalidSubmit">
+        <FluentValidator TValidator="EmployeeValidator" />
+
+        <div class="mb-3">
+            <label for="firstname" class="form-label">Firstname</label>
+            <InputText id="firstname" class="form-control"
+                   @bind-Value="Employee.FirstName" />
+            <ValidationMessage For="@(() => Employee.FirstName)" />
+        </div>
+
+        <div class="mb-3">
+            <label for="lastname" class="form-label">Lastname</label>
+            <InputText id="lastname" class="form-control"
+                   @bind-Value="Employee.LastName" />
+            <ValidationMessage For="@(() => Employee.LastName)" />
+        </div>
+
+        <div class="mb-3">
+            <label for="department" class="form-label">Department</label>
+            <InputSelect id="department" class="form-select"
+                     @bind-Value="Employee.DepartmentId">
+                @if (Departments is not null)
+                {
+                    @foreach (var department in Departments)
+                    {
+                        <option value="@department.Id">@department.Name</option>
+                    }
+                }
+            </InputSelect>
+        </div>
+
+        <div class="mb-3">
+            <label for="isDeveloper" class="form-label">Is developer:</label>
+            <InputCheckbox id="isDeveloper" class="form-check-input"
+                       @bind-Value="Employee.IsDeveloper" />
+        </div>
+
+        <button type="submit" class="btn btn-primary">Add</button>
+    </EditForm>
+
+    @if (SuccessMessage is not null)
+    {
+        <br />
+        <div class="alert alert-success">@SuccessMessage</div>
+    }
+
+    @if (ErrorMessage is not null)
+    {
+        <br />
+        <div class="alert alert-danger">@ErrorMessage</div>
+    }
+}
+
+
+@code {
+    public Employee Employee { get; set; } = new Employee();
+
+    public List<Department> Departments { get; set; } = null!;
+
+    private string? SuccessMessage { get; set; }
+
+    private string? ErrorMessage { get; set; }
+
+    protected async override Task OnInitializedAsync()
+    {
+        using EmployeeManagerDbContext EmployeeDbContext = await EmployeeDbContextFactory.CreateDbContextAsync();
+
+        Departments = await EmployeeDbContext.Departments.ToListAsync();
+
+        Employee.DepartmentId = Departments[0].Id;
+
+        await base.OnInitializedAsync();
+    }
+
+    public async void HandleValidSubmit()
+    {
+        try
+        {
+
+            if (Employee is not null)
+            {
+                using var context = EmployeeDbContextFactory.CreateDbContext();
+
+                context.Employees.Add(Employee);
+                await context.SaveChangesAsync();
+
+                SuccessMessage = $"Employee {Employee.FirstName} {Employee.LastName} was added successfully";
+                ErrorMessage = null;
+
+                Employee = new Employee()
+                    {
+                        DepartmentId = Departments[0].Id
+                    };
+
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            SuccessMessage = null;
+            ErrorMessage = $"Error while adding new employee: {ex.Message}";
+        }
+    }
+
+    public void HandleInvalidSubmit()
+    {
+        Console.WriteLine("Invalid submit");
+    }
+}

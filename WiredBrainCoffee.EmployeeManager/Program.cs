@@ -1,8 +1,22 @@
+using FluentValidation;
+using Microsoft.EntityFrameworkCore;
+using System;
+using WiredBrainCoffee.EmployeeManager.Data;
+using WiredBrainCoffee.EmployeeManager.Data.Models;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
+builder.Services.AddDbContextFactory<EmployeeManagerDbContext>(
+        options =>
+        {
+            options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"));
+        }
+    );
+builder.Services.AddTransient<IValidator<Employee>, EmployeeValidator>();
+builder.Services.AddTransient<IValidator<Department>, DepartmentValidator>();
 
 var app = builder.Build();
 

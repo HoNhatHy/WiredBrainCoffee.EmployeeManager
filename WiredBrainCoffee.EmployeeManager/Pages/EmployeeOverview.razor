@@ -1,7 +1,91 @@
-﻿@page "/employees/list"
+﻿@page "/employees/list/{currentPage:int?}"
+@inject IDbContextFactory<EmployeeManagerDbContext> EmployeeDbContextFactory
+@inject NavigationManager NavigationManager
 
 <PageTitle>Employees</PageTitle>
 
 <h1>Employees</h1>
 
-TODO: List the employees here
+@if (Employees is null)
+{
+    <div>Loading...</div>
+}
+else
+{
+    <ul class="pagination mt-3">
+        <li class="page-item @(CurrentPage == 1 ? "disabled" : "")">
+            <a class="page-link" href="/employees/list/@(CurrentPage - 1)">Previous</a>
+        </li>
+        @for (int i = 1; i <= TotalPages; i++)
+        {
+            <li class="page-item @(CurrentPage == i ? "active" : "")">
+                <a class="page-link" href="/employees/list/@i">@i</a>
+            </li>
+        }
+        <li class="page-item @(CurrentPage == TotalPages ? "disabled" : "")">
+            <a class="page-link" href="/employees/list/@(CurrentPage + 1)">Next</a>
+        </li>
+    </ul>
+
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>First name</th>
+                <th>Last name</th>
+                <th>Is developer</th>
+                <th>Department</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var employee in Employees)
+            {
+                <tr>
+                    <th>@employee.FirstName</th>
+                    <th>@employee.LastName</th>
+                    <th>@employee.IsDeveloper</th>
+                    <th>@employee.Department?.Name</th>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    [Parameter]
+    public int? CurrentPage { get; set; }
+
+    private int TotalPages { get; set; }
+
+    private List<Employee>? Employees { get; set; }
+
+    private const int ItemsPerPage = 4;
+
+    protected async override Task OnParametersSetAsync()
+    {
+        if (CurrentPage is null or < 1)
+        {
+            NavigationManager.NavigateTo("/employees/list/1");
+            return;
+        }
+
+        using EmployeeManagerDbContext EmployeeDbContext = await EmployeeDbContextFactory.CreateDbContextAsync();
+
+        var employeeCount = await EmployeeDbContext.Employees.CountAsync();
+        TotalPages = employeeCount is 0 ? 1 : (int)Math.Floor((double)employeeCount / ItemsPerPage);
+
+        if (CurrentPage > TotalPages)
+        {
+            NavigationManager.NavigateTo($"/employees/list/{TotalPages}");
+            return;
+        }
+
+        var itemsToSkip = (CurrentPage.Value - 1) * ItemsPerPage;
+
+        Employees = await EmployeeDbContext.Employees
+                                .Include(employee => employee.Department)
+                                .OrderBy(employee => employee.FirstName)
+                                .Skip(itemsToSkip)
+                                .Take(ItemsPerPage)
+                                .ToListAsync();
+    }
+}
